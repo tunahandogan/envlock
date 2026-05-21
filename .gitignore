@@ -1,0 +1,39 @@
+# ── Go build artefacts ────────────────────────────────────────────────────────
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+
+# Compiled binary (project name)
+envlock
+/bin/
+
+# Go module download cache (keep go.sum, ignore local cache)
+/vendor/
+
+# ── IDE / editor ──────────────────────────────────────────────────────────────
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# ── OS artefacts ──────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+
+# ── Project-specific ─────────────────────────────────────────────────────────
+# Never commit plain-text env files
+.env
+.env.*
+!.env.example
+
+# envlock user key directory lives outside the repo (~/.envlock/)
+# Add the line below to your global gitignore as well:
+#   ~/.envlock/
+
+# Local envlock config overrides
+.envlock.local.yaml

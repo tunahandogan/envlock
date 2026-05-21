@@ -1,0 +1,5 @@
+version: "1"
+project_name: envlock
+recipients:
+    - email: dogantunahan.tr@gmail.com
+      public_key: age18m26xzadn6r4nyev3hdaz0sm2sw8sa7256lwq3828284x5sng47sh0h5jg
