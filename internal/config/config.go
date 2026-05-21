@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"time"
 
 	"gopkg.in/yaml.v3"
 )
@@ -21,8 +22,10 @@ const (
 
 // Recipient represents a team member who can decrypt the vault.
 type Recipient struct {
-	Email     string `yaml:"email"`
-	PublicKey string `yaml:"public_key"`
+	Email     string     `yaml:"email"`
+	PublicKey string     `yaml:"public_key"`
+	AddedBy   string     `yaml:"added_by,omitempty"`
+	AddedOn   *time.Time `yaml:"added_on,omitempty"` // pointer so omitempty works for nil
 }
 
 // Config is the top-level structure of .envlock/config.yaml.
@@ -33,18 +36,23 @@ type Config struct {
 }
 
 // InitConfig creates .envlock/ and writes an initial config.yaml in projectPath.
-// It records email and publicKey as the first authorised recipient.
+// It records email and publicKey as the sole authorised recipient.
 func InitConfig(projectPath, email, publicKey string) error {
 	dir := filepath.Join(projectPath, envlockDirName)
 	if err := os.MkdirAll(dir, envlockDirPerms); err != nil {
 		return fmt.Errorf("creating %s directory: %w", envlockDirName, err)
 	}
-
+	now := time.Now().UTC()
 	cfg := Config{
 		Version:     schemaVersion,
 		ProjectName: filepath.Base(projectPath),
 		Recipients: []Recipient{
-			{Email: email, PublicKey: publicKey},
+			{
+				Email:     email,
+				PublicKey: publicKey,
+				AddedBy:   email, // self-initialized
+				AddedOn:   &now,
+			},
 		},
 	}
 	return SaveConfig(projectPath, &cfg)
@@ -77,13 +85,52 @@ func SaveConfig(projectPath string, cfg *Config) error {
 	return nil
 }
 
+// AddRecipient appends a new recipient to cfg. Returns an error if a recipient
+// with the same email already exists.
+func AddRecipient(cfg *Config, email, publicKey, addedBy string) error {
+	for _, r := range cfg.Recipients {
+		if r.Email == email {
+			return fmt.Errorf("%s already has access. Use 'envlock recipients' to see the current list", email)
+		}
+	}
+	now := time.Now().UTC()
+	cfg.Recipients = append(cfg.Recipients, Recipient{
+		Email:     email,
+		PublicKey: publicKey,
+		AddedBy:   addedBy,
+		AddedOn:   &now,
+	})
+	return nil
+}
+
+// RemoveRecipient deletes the recipient with the given email from cfg.
+// Returns an error if the email is not found.
+func RemoveRecipient(cfg *Config, email string) error {
+	for i, r := range cfg.Recipients {
+		if r.Email == email {
+			cfg.Recipients = append(cfg.Recipients[:i], cfg.Recipients[i+1:]...)
+			return nil
+		}
+	}
+	return fmt.Errorf("%s: not found in recipients list.\nRun 'envlock recipients' to see current members", email)
+}
+
+// GetRecipientPublicKeys returns all public key strings in cfg.
+// Useful for building an age.Recipient slice for encryption.
+func GetRecipientPublicKeys(cfg *Config) []string {
+	keys := make([]string, len(cfg.Recipients))
+	for i, r := range cfg.Recipients {
+		keys[i] = r.PublicKey
+	}
+	return keys
+}
+
 // ProjectInitialized reports whether projectPath already contains an .envlock directory.
 func ProjectInitialized(projectPath string) bool {
 	_, err := os.Stat(filepath.Join(projectPath, envlockDirName))
 	return err == nil
 }
 
-// configFilePath returns the absolute path to the config.yaml file.
 func configFilePath(projectPath string) string {
 	return filepath.Join(projectPath, envlockDirName, configFileName)
 }
