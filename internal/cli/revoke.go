@@ -137,7 +137,7 @@ func runRevoke(cmd *cobra.Command, args []string) error {
 	yellow.Println("⚠  IMPORTANT: git history still contains old encrypted versions.")
 	fmt.Printf("   %s can still decrypt past vault snapshots from git commits.\n", email)
 	fmt.Println("   If this is a security incident, rotate the affected secrets immediately:")
-	fmt.Println("   envlock rotate ALL   (coming soon)")
+	fmt.Println("   envlock rotate --all")
 	fmt.Println()
 	fmt.Printf("Commit the changes:\n")
 	fmt.Printf("  git add .envlock/\n")

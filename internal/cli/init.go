@@ -13,6 +13,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/tunahandogan/envlock/internal/config"
+	"github.com/tunahandogan/envlock/internal/gitignore"
 	"github.com/tunahandogan/envlock/internal/keys"
 )
 
@@ -73,7 +74,13 @@ func runInit(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("creating project config: %w", err)
 	}
 
-	printSuccess(email, keyPath, publicKey)
+	gitignoreAdded, err := gitignore.EnsureEntries(cwd, []string{".env", ".env.*", "!.env.example"})
+	if err != nil {
+		// Non-fatal: warn but don't abort.
+		fmt.Fprintf(os.Stderr, "warning: could not update .gitignore: %v\n", err)
+	}
+
+	printSuccess(email, keyPath, publicKey, gitignoreAdded)
 	return nil
 }
 
@@ -117,16 +124,21 @@ func handleExistingKey(email string) error {
 }
 
 // printSuccess prints the coloured summary after a successful init.
-func printSuccess(email, keyPath, publicKey string) {
+func printSuccess(email, keyPath, publicKey string, gitignoreAdded []string) {
 	green := color.New(color.FgGreen, color.Bold)
 
 	green.Printf("✓ Keypair generated\n")
 	green.Printf("✓ Private key saved to %s\n", displayPath(keyPath))
 	green.Printf("✓ Public key: %s\n", publicKey)
 	green.Printf("✓ Project initialized at .envlock/config.yaml\n")
+	if len(gitignoreAdded) > 0 {
+		green.Printf("✓ Added %d line(s) to .gitignore (%s)\n",
+			len(gitignoreAdded), strings.Join(gitignoreAdded, ", "))
+	}
 	fmt.Println()
-	fmt.Printf("Add a teammate's public key with:  envlock recipient add <email> <age1...>\n")
-	fmt.Printf("Encrypt your first secret with:    envlock add KEY=value\n")
+	fmt.Printf("Share your public key with teammates:  envlock pubkey\n")
+	fmt.Printf("Grant a teammate access:               envlock grant <email> --key <age1...>\n")
+	fmt.Printf("Encrypt your first secret:             envlock add KEY=value\n")
 }
 
 // displayPath replaces the home directory prefix with ~ for a shorter display.
