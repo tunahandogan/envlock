@@ -4,7 +4,10 @@
 package cli
 
 import (
+	"bufio"
 	"fmt"
+	"os"
+	"strings"
 
 	"github.com/AlecAivazis/survey/v2"
 	"github.com/fatih/color"
@@ -13,7 +16,10 @@ import (
 	"github.com/tunahandogan/envlock/internal/vault"
 )
 
-var rotateAllFlag bool
+var (
+	rotateAllFlag   bool
+	rotateStdinFlag bool
+)
 
 var rotateCmd = &cobra.Command{
 	Use:   "rotate [KEY]",
@@ -33,12 +39,16 @@ This is the recommended workflow after a security incident.
 
 func init() {
 	rotateCmd.Flags().BoolVar(&rotateAllFlag, "all", false, "rotate every secret in the vault interactively")
+	rotateCmd.Flags().BoolVar(&rotateStdinFlag, "value-stdin", false, "read the new value from stdin (for scripts; single key only)")
 	rootCmd.AddCommand(rotateCmd)
 }
 
 func runRotate(cmd *cobra.Command, args []string) error {
 	if rotateAllFlag && len(args) > 0 {
 		return fmt.Errorf("cannot specify a key together with --all")
+	}
+	if rotateAllFlag && rotateStdinFlag {
+		return fmt.Errorf("--value-stdin only works with a single key, not --all")
 	}
 	if !rotateAllFlag && len(args) == 0 {
 		return fmt.Errorf("specify a key to rotate, or use --all to rotate every secret")
@@ -62,7 +72,14 @@ func rotateSingle(ctx *vaultCtx, key string) error {
 	}
 
 	var newValue string
-	if err := survey.AskOne(&survey.Password{
+	if rotateStdinFlag {
+		reader := bufio.NewReader(os.Stdin)
+		line, err := reader.ReadString('\n')
+		if err != nil && line == "" {
+			return fmt.Errorf("reading value from stdin: %w", err)
+		}
+		newValue = strings.TrimRight(line, "\r\n")
+	} else if err := survey.AskOne(&survey.Password{
 		Message: fmt.Sprintf("New value for %s:", key),
 	}, &newValue); err != nil {
 		return fmt.Errorf("reading value: %w", err)
@@ -73,7 +90,7 @@ func rotateSingle(ctx *vaultCtx, key string) error {
 
 	ctx.vault.Set(key, newValue)
 
-	if err := vault.SaveVault(ctx.dir, ctx.vault, ctx.recipients); err != nil {
+	if err := vault.SaveVaultEnv(ctx.dir, ctx.env, ctx.vault, ctx.recipients); err != nil {
 		return fmt.Errorf("saving vault: %w", err)
 	}
 
@@ -134,7 +151,7 @@ func rotateAll(ctx *vaultCtx) error {
 		ctx.vault.Set(k, v)
 	}
 
-	if err := vault.SaveVault(ctx.dir, ctx.vault, ctx.recipients); err != nil {
+	if err := vault.SaveVaultEnv(ctx.dir, ctx.env, ctx.vault, ctx.recipients); err != nil {
 		return fmt.Errorf("saving vault: %w", err)
 	}
 

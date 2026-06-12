@@ -59,7 +59,7 @@ func runAdd(cmd *cobra.Command, args []string) error {
 
 	ctx.vault.Set(key, value)
 
-	if err := vault.SaveVault(ctx.dir, ctx.vault, ctx.recipients); err != nil {
+	if err := vault.SaveVaultEnv(ctx.dir, ctx.env, ctx.vault, ctx.recipients); err != nil {
 		return fmt.Errorf("saving vault: %w", err)
 	}
 

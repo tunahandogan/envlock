@@ -12,7 +12,6 @@ import (
 
 	"github.com/tunahandogan/envlock/internal/config"
 	"github.com/tunahandogan/envlock/internal/crypto"
-	"github.com/tunahandogan/envlock/internal/vault"
 )
 
 var grantKeyFlag string
@@ -81,13 +80,11 @@ func runGrant(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	// Decrypt with current identity, re-encrypt for everyone (including the new member).
-	v, err := vault.LoadVault(cwd, identity)
+	// Decrypt with current identity, re-encrypt every environment's vault
+	// for everyone (including the new member).
+	secretCount, vaultCount, err := reencryptAllVaults(cwd, identity, newRecipients)
 	if err != nil {
 		return err
-	}
-	if err := vault.SaveVault(cwd, v, newRecipients); err != nil {
-		return fmt.Errorf("re-encrypting vault: %w", err)
 	}
 
 	// Persist config only after the vault is safely written.
@@ -97,8 +94,8 @@ func runGrant(cmd *cobra.Command, args []string) error {
 
 	green := color.New(color.FgGreen, color.Bold)
 	green.Printf("✓ Granted access to %s\n", email)
-	green.Printf("✓ Re-encrypted %d secret(s) for %d recipient(s)\n",
-		len(v.List()), len(cfg.Recipients))
+	green.Printf("✓ Re-encrypted %d secret(s) in %d vault(s) for %d recipient(s)\n",
+		secretCount, vaultCount, len(cfg.Recipients))
 	fmt.Printf("\nCommit the changes:\n")
 	fmt.Printf("  git add .envlock/\n")
 	fmt.Printf("  git commit -m \"grant envlock access to %s\"\n", email)

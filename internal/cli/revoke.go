@@ -16,7 +16,6 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/tunahandogan/envlock/internal/config"
-	"github.com/tunahandogan/envlock/internal/vault"
 )
 
 var revokeForceFlag bool
@@ -112,13 +111,10 @@ func runRevoke(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	// Decrypt vault, re-encrypt without the removed recipient.
-	v, err := vault.LoadVault(cwd, identity)
+	// Decrypt every environment's vault, re-encrypt without the removed recipient.
+	secretCount, vaultCount, err := reencryptAllVaults(cwd, identity, newRecipients)
 	if err != nil {
 		return err
-	}
-	if err := vault.SaveVault(cwd, v, newRecipients); err != nil {
-		return fmt.Errorf("re-encrypting vault: %w", err)
 	}
 
 	// Persist config only after the vault is safely updated.
@@ -130,8 +126,8 @@ func runRevoke(cmd *cobra.Command, args []string) error {
 	yellow := color.New(color.FgYellow, color.Bold)
 
 	green.Printf("✓ Revoked %s from future access\n", email)
-	green.Printf("✓ Re-encrypted %d secret(s) for %d remaining recipient(s)\n",
-		len(v.List()), len(cfg.Recipients))
+	green.Printf("✓ Re-encrypted %d secret(s) in %d vault(s) for %d remaining recipient(s)\n",
+		secretCount, vaultCount, len(cfg.Recipients))
 
 	fmt.Println()
 	yellow.Println("⚠  IMPORTANT: git history still contains old encrypted versions.")
