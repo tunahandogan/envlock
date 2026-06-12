@@ -1,0 +1,57 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Build & Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Build
+        run: go build ./...
+
+      - name: Vet
+        run: go vet ./...
+
+      - name: Check formatting
+        run: |
+          unformatted=$(gofmt -l .)
+          if [ -n "$unformatted" ]; then
+            echo "Files not gofmt-formatted:"
+            echo "$unformatted"
+            exit 1
+          fi
+
+      - name: Test
+        run: go test -race ./...
+
+      - name: Build CLI binary
+        run: go build -o envlock ./cmd/envlock
+
+      - name: Smoke test
+        run: |
+          set -e
+          export PATH="$PWD:$PATH"
+          tmp=$(mktemp -d)
+          cd "$tmp"
+          git init -q .
+          envlock init --email ci@example.com
+          envlock add SMOKE_TEST=ok
+          test "$(envlock get SMOKE_TEST)" = "ok"
+          envlock list --json
+          envlock pull
+          grep -q "SMOKE_TEST=ok" .env
+          envlock run -- sh -c 'test "$SMOKE_TEST" = "ok"'
+          envlock remove SMOKE_TEST --force
