@@ -1,6 +1,7 @@
 // get.go defines `envlock get KEY`.
 // The command is deliberately minimal so its stdout can be piped directly:
-//   export DB=$(envlock get DATABASE_URL)
+//
+//	export DB=$(envlock get DATABASE_URL)
 package cli
 
 import (

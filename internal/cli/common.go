@@ -1,6 +1,7 @@
 // common.go contains shared helpers used by every vault command.
 // All vault commands follow the same preamble:
-//   requireInitialized → loadConfig → getCurrentIdentity → loadVault → parseRecipients
+//
+//	requireInitialized → loadConfig → getCurrentIdentity → loadVault → parseRecipients
 package cli
 
 import (
