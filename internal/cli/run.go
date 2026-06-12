@@ -30,10 +30,10 @@ Use -- to separate envlock flags from the command and its flags:
 
 On Windows, shell built-ins require an explicit cmd /c prefix:
   envlock run -- cmd /c dir`,
-	Args:                  cobra.MinimumNArgs(1),
-	RunE:                  runRun,
-	DisableFlagParsing:    false,
-	Example:               "  envlock run -- npm start\n  envlock run -- pytest -v\n  envlock run -- printenv | grep DB",
+	Args:               cobra.MinimumNArgs(1),
+	RunE:               runRun,
+	DisableFlagParsing: false,
+	Example:            "  envlock run -- npm start\n  envlock run -- pytest -v\n  envlock run -- printenv | grep DB",
 }
 
 func init() {

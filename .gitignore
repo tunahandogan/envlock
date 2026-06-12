@@ -8,7 +8,7 @@
 *.out
 
 # Compiled binary (project name)
-envlock
+/envlock
 /bin/
 
 # Go module download cache (keep go.sum, ignore local cache)

@@ -1,6 +1,7 @@
 // common.go contains shared helpers used by every vault command.
 // All vault commands follow the same preamble:
-//   requireInitialized → loadConfig → getCurrentIdentity → loadVault → parseRecipients
+//
+//	requireInitialized → loadConfig → getCurrentIdentity → loadVault → parseRecipients
 package cli
 
 import (
@@ -18,6 +19,7 @@ import (
 // vaultCtx bundles everything a command needs to read or mutate the vault.
 type vaultCtx struct {
 	dir        string
+	env        string // vault environment ("" = default)
 	vault      *vault.Vault
 	recipients []age.Recipient
 }
@@ -45,7 +47,10 @@ func getCurrentIdentity(cfg *config.Config) (age.Identity, error) {
 		}
 		identity, err := keys.LoadPrivateKey(r.Email)
 		if err != nil {
-			continue
+			// A key file exists for this recipient but cannot be used
+			// (wrong passphrase, corrupt file). Surface the real error
+			// instead of a misleading "no local key found".
+			return nil, err
 		}
 		return identity, nil
 	}
@@ -71,7 +76,10 @@ func loadVaultCtx() (*vaultCtx, error) {
 	if err != nil {
 		return nil, err
 	}
-	v, err := vault.LoadVault(cwd, identity)
+	if err := vault.ValidateEnvName(envFlag); err != nil {
+		return nil, err
+	}
+	v, err := vault.LoadVaultEnv(cwd, envFlag, identity)
 	if err != nil {
 		return nil, err
 	}
@@ -79,7 +87,7 @@ func loadVaultCtx() (*vaultCtx, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &vaultCtx{dir: cwd, vault: v, recipients: recipients}, nil
+	return &vaultCtx{dir: cwd, env: envFlag, vault: v, recipients: recipients}, nil
 }
 
 // parseRecipients converts the config recipient list into age.Recipient values
@@ -100,6 +108,33 @@ func parseRecipients(cfg *config.Config) ([]age.Recipient, error) {
 // that manipulate the recipient list directly (grant, revoke).
 func GetAllRecipients(cfg *config.Config) ([]age.Recipient, error) {
 	return parseRecipients(cfg)
+}
+
+// reencryptAllVaults decrypts every vault file (all environments) with
+// identity and re-encrypts each one for recipients. Used by grant and revoke,
+// which change the recipient list. Returns the total number of secrets and
+// the number of vault files processed.
+func reencryptAllVaults(dir string, identity age.Identity, recipients []age.Recipient) (secrets, vaults int, err error) {
+	envs, err := vault.ListEnvs(dir)
+	if err != nil {
+		return 0, 0, err
+	}
+	if len(envs) == 0 {
+		// No vault written yet — nothing to re-encrypt.
+		return 0, 0, nil
+	}
+	for _, e := range envs {
+		v, err := vault.LoadVaultEnv(dir, e, identity)
+		if err != nil {
+			return 0, 0, err
+		}
+		if err := vault.SaveVaultEnv(dir, e, v, recipients); err != nil {
+			return 0, 0, fmt.Errorf("re-encrypting vault %s: %w", vault.VaultFileName(e), err)
+		}
+		secrets += len(v.List())
+		vaults++
+	}
+	return secrets, vaults, nil
 }
 
 // currentUserEmail returns the email of the first project recipient whose

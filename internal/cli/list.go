@@ -146,4 +146,3 @@ func printListTable(ctx *vaultCtx, sortedKeys []string) {
 	updated := ctx.vault.Metadata.UpdatedAt.Format("2006-01-02 15:04:05 UTC")
 	fmt.Printf("%d secret(s) total  •  last updated %s\n", len(sortedKeys), updated)
 }
-

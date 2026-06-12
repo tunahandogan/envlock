@@ -3,10 +3,18 @@
 package cli
 
 import (
+	"fmt"
 	"os"
 
+	"github.com/AlecAivazis/survey/v2"
 	"github.com/spf13/cobra"
+
+	"github.com/tunahandogan/envlock/internal/keys"
 )
+
+// envFlag selects which vault environment commands operate on.
+// Empty means the default environment (.envlock/vault.age).
+var envFlag string
 
 var rootCmd = &cobra.Command{
 	Use:   "envlock",
@@ -19,6 +27,27 @@ commit and share them across your team via version control.`,
 	},
 	// Suppress usage output on runtime errors; only show it for flag parse errors.
 	SilenceUsage: true,
+}
+
+func init() {
+	rootCmd.PersistentFlags().StringVar(&envFlag, "env", "",
+		"vault environment to operate on (e.g. production); default is the shared vault")
+
+	// Passphrase resolution for passphrase-protected private keys:
+	// ENVLOCK_PASSPHRASE (for scripts and CI) wins over the interactive prompt.
+	keys.PassphrasePrompt = func(email string) (string, error) {
+		if p := os.Getenv("ENVLOCK_PASSPHRASE"); p != "" {
+			return p, nil
+		}
+		passphrase := ""
+		prompt := &survey.Password{
+			Message: fmt.Sprintf("Passphrase for key %s:", email),
+		}
+		if err := survey.AskOne(prompt, &passphrase); err != nil {
+			return "", err
+		}
+		return passphrase, nil
+	}
 }
 
 // Execute runs the root command. Called by main.

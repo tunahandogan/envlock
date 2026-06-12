@@ -1,5 +1,0 @@
-version: "1"
-project_name: envlock
-recipients:
-    - email: sen@ornek.com
-      public_key: age1f4hsld4d0jc9x30suxt9fqr3vxd6rjt7eefh4c395taluxfuz5ys2lvg92

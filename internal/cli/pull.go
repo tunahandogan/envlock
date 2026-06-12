@@ -50,6 +50,11 @@ func runPull(cmd *cobra.Command, args []string) error {
 	vaultSecrets := vaultToMap(ctx)
 
 	outPath := pullOutputFlag
+	// With --env and no explicit --output, write to .env.<env> so different
+	// environments don't clobber each other's files.
+	if ctx.env != "" && !cmd.Flags().Changed("output") {
+		outPath = ".env." + ctx.env
+	}
 
 	// If file exists and we're not forcing, compute and display the diff.
 	if _, statErr := os.Stat(outPath); statErr == nil && !pullForceFlag {
